@@ -573,6 +573,7 @@ function frame(now) {
     for (const h of G.hollows) h.update(dt);
   }
   if (G.player && !['title', 'create'].includes(G.state)) G.ui.update(dt);
+  if (G.state !== 'play') G.ui.prompt(null);
   if (W) {
     for (const a of W.animated) a.rotation.z += dt * a.userData.spin;
     if (W.lanternCore) W.lanternCore.scale.setScalar(1 + Math.sin(G.time * 2.2) * 0.05);
