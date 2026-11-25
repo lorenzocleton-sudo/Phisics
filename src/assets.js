@@ -29,7 +29,18 @@ export async function loadAssets(renderer, onProgress) {
   for (const n of TEX) jobs.push(loadTex(n + '.jpg', !n.endsWith('_n')).then((t) => { A.tex[n] = t; }));
   for (const n of ENV) jobs.push(loadTex(n + '.jpg', true).then((t) => { t.mapping = THREE.EquirectangularReflectionMapping; A.env[n] = t; }));
   jobs.push(loadTex('splat.png', false).then((t) => { A.splat = t; }));
-  jobs.push(new Promise((res, rej) => new GLTFLoader().load(url('xbot.json'), (g) => { A.xbot = g; tick(); res(); }, undefined, rej)));
+  // The embedded build decodes the model in-page: some hosts block fetch() even for data: URLs.
+  const emb = window.__TF_ASSETS && window.__TF_ASSETS['xbot.glb'];
+  jobs.push(new Promise((res, rej) => {
+    const done = (g) => { A.xbot = g; tick(); res(); };
+    const fail = (e) => rej(new Error('Could not load the giant model: ' + (e && e.message ? e.message : e)));
+    if (emb) {
+      const bin = atob(emb.slice(emb.indexOf(',') + 1));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      new GLTFLoader().parse(bytes.buffer, '', done, fail);
+    } else new GLTFLoader().load(url('xbot.json'), done, undefined, fail);
+  }));
   await Promise.all(jobs);
   A.ready = true;
   return A;

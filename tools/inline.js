@@ -19,7 +19,8 @@ const js = fs.readFileSync('dist/game.js', 'utf8').replace(/<\/script/gi, '<\\/s
 const files = fs.readdirSync('assets').filter((f) => /\.(jpg|png|json)$/.test(f));
 const mime = { jpg: 'image/jpeg', png: 'image/png', json: 'application/json' };
 const embedded = {};
-for (const f of files) embedded[f] = `data:${mime[f.split('.').pop()]};base64,` + fs.readFileSync(path.join('assets', f)).toString('base64');
+for (const f of files) if (f !== 'xbot.json') embedded[f] = `data:${mime[f.split('.').pop()]};base64,` + fs.readFileSync(path.join('assets', f)).toString('base64');
+embedded['xbot.glb'] = 'data:model/gltf-binary;base64,' + fs.readFileSync('assets/xbot.glb').toString('base64');
 const standalone = html.replace('<script src="dist/game.js"></script>',
   () => `<script>window.__TF_ASSETS=${JSON.stringify(embedded)};</script>\n<script>${js}</script>`);
 fs.writeFileSync('dist/tetherfall.html', standalone);
