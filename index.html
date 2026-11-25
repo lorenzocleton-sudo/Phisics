@@ -34,7 +34,7 @@ button { font-family: var(--f-ui); }
 :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 
 /* ---------------- HUD ---------------- */
-#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
 #vitals { position: absolute; left: max(18px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); width: 300px; display: grid; gap: 7px; }
 .bar { position: relative; height: 14px; background: rgba(10,10,10,.6); border: 1px solid rgba(201,162,90,.45); }
 .bar > i { position: absolute; inset: 1px auto 1px 1px; background: var(--c); transition: width .12s linear; }
