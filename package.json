@@ -1,0 +1,24 @@
+{
+  "name": "tetherfall",
+  "version": "1.0.0",
+  "description": "Tetherfall: a fast grappling, giant-slaying RPG set in a walled city.",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --outfile=dist/game.js && node tools/inline.js && node tools/artifact.js",
+    "dev": "esbuild src/main.js --bundle --format=iife --outfile=dist/game.js --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lorenzocleton-sudo/Phisics.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lorenzocleton-sudo/Phisics/issues"
+  },
+  "homepage": "https://github.com/lorenzocleton-sudo/Phisics#readme",
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "three": "^0.160.0"
+  }
+}
