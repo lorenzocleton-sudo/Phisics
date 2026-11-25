@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "Tetherfall: a fast grappling, giant-slaying RPG set in a walled city.",
   "scripts": {
-    "build": "esbuild src/main.js --bundle --minify --format=iife --outfile=dist/game.js && node tools/inline.js && node tools/artifact.js",
-    "dev": "esbuild src/main.js --bundle --format=iife --outfile=dist/game.js --watch"
+    "build": "bash tools/fetch_assets.sh && python3 tools/gen_assets.py && npm run bundle",
+    "dev": "esbuild src/main.js --bundle --format=iife --outfile=dist/game.js --watch",
+    "bundle": "esbuild src/main.js --bundle --minify --format=iife --outfile=dist/game.js && node tools/inline.js"
   },
   "repository": {
     "type": "git",
@@ -19,6 +20,8 @@
   "homepage": "https://github.com/lorenzocleton-sudo/Phisics#readme",
   "devDependencies": {
     "esbuild": "^0.24.0",
+    "n8ao": "^1.8.2",
+    "postprocessing": "^6.35.3",
     "three": "^0.160.0"
   }
 }

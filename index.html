@@ -88,7 +88,15 @@ button { font-family: var(--f-ui); }
 #grab .k { font-size: 18px; font-weight: 700; letter-spacing: .1em; color: #ffd8d0; text-shadow: 0 2px 4px #000; }
 #grab .bar { margin-top: 6px; }
 #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(170,20,10,.55)); opacity: 0; transition: opacity .35s; }
-#speedlines { position: absolute; inset: 0; background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,.0) 0deg 4deg, rgba(255,255,255,.06) 4deg 5deg); -webkit-mask: radial-gradient(circle at center, transparent 35%, #000 75%); mask: radial-gradient(circle at center, transparent 35%, #000 75%); opacity: 0; }
+#screenBlood { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+.loadwrap { width: min(320px, 80vw); display: grid; gap: 8px; color: var(--muted); font-size: 15px; }
+.lbar { height: 4px; background: rgba(255,255,255,.12); }
+.lbar i { display: block; height: 100%; width: 0; background: var(--brass); transition: width .2s; }
+.keys3 { display: grid; grid-template-columns: 1fr auto auto; gap: 7px 16px; font-size: 17px; align-items: center; }
+.keys3 b { color: var(--brass); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
+.keys3 kbd { font-family: var(--f-ui); font-weight: 600; background: var(--iron-2); border: 1px solid #4a5258; padding: 1px 8px; color: var(--text); white-space: nowrap; }
+body.pad .btn:focus, body.pad .ch:focus, body.pad .tab:focus, body.pad .card:focus, body.pad .sw:focus, body.pad input:focus { outline: 3px solid var(--brass); outline-offset: 2px; }
+#speedlines { position: absolute; inset: 0; background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,.0) 0deg 4deg, rgba(255,255,255,.035) 4deg 5deg); -webkit-mask: radial-gradient(circle at center, transparent 35%, #000 75%); mask: radial-gradient(circle at center, transparent 35%, #000 75%); opacity: 0; }
 #lowHp { position: absolute; inset: 0; box-shadow: inset 0 0 120px rgba(160,0,0,.6); opacity: 0; }
 
 /* ---------------- panels ---------------- */
@@ -175,7 +183,7 @@ input[type=text] { width: 100%; font: 500 22px var(--f-ui); padding: 10px 12px; 
 #dead h2 { color: var(--blood); font-size: 56px; }
 #chapter .panel { text-align: center; }
 #chapter p { font-family: var(--f-body); font-size: 19px; line-height: 1.55; color: var(--parch); max-width: 36em; margin: 14px auto; }
-#notice { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 16px 22px; background: rgba(18,20,22,.9); border: 1px solid var(--brass-dim); font-size: 19px; text-align: center; }
+#notice { pointer-events: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 16px 22px; background: rgba(18,20,22,.9); border: 1px solid var(--brass-dim); font-size: 19px; text-align: center; }
 @media (max-width: 700px) {
   #vitals { width: 220px; } #minimap { width: 120px; height: 120px; } #mmN { display: none; }
   #objective { width: 52vw; } #objective .qs { font-size: 14px; }
@@ -187,6 +195,7 @@ input[type=text] { width: 100%; font: 500 22px var(--f-ui); padding: 10px 12px; 
 <canvas id="game"></canvas>
 
 <div id="hud" class="hidden">
+  <canvas id="screenBlood" width="640" height="360"></canvas>
   <div id="speedlines"></div>
   <div id="lowHp"></div>
   <div id="vignette"></div>
@@ -204,7 +213,7 @@ input[type=text] { width: 100%; font: 500 22px var(--f-ui); padding: 10px 12px; 
   <div id="banner"><div class="k"></div><div class="v"></div></div>
   <div id="killfeed"></div>
   <div id="prompt" class="hidden"></div>
-  <div id="grab" class="hidden"><div class="k">MASH F OR CLICK TO CUT FREE</div><div class="bar" style="--c: var(--ember)"><i></i></div></div>
+  <div id="grab" class="hidden"><div class="k">MASH SLASH TO HACK FREE</div><div class="bar" style="--c: var(--ember)"><i></i></div></div>
   <div id="vitals">
     <div class="bar" id="hpBar" style="--c: var(--blood)"><b>HP</b><i></i><span></span></div>
     <div class="bar" id="gasBar" style="--c: var(--aether)"><b>GAS</b><i></i><span></span></div>
@@ -225,7 +234,8 @@ input[type=text] { width: 100%; font: 500 22px var(--f-ui); padding: 10px 12px; 
       <button class="btn" id="bNew">New Warden</button>
       <button class="btn" id="bControls">Controls</button>
     </div>
-    <div class="foot">Best with mouse and keyboard. Click the game to capture the mouse; Esc to pause.</div>
+    <div id="loadWrap" class="loadwrap"><div class="lbar"><i id="loadBar"></i></div><div id="loadMsg">Loading textures, skies and giants…</div></div>
+    <div class="foot">Plays with a controller or mouse and keyboard. First person. Contains heavy blood and gore (adjustable in Settings).</div>
   </div>
 </div>
 

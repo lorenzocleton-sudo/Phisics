@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { G } from './state.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { A } from './assets.js';
+import { clips } from './hollows.js';
 
 export const NPC_DEFS = {
   maren:   { name: 'Maren Holt', title: 'Training Instructor', section: 'lowmarch', color: 0x6b3a2a, hair: 0x9a9a9a },
@@ -75,30 +78,32 @@ function drawMarker(sp, sym) {
   sp.material.map.needsUpdate = true;
 }
 
+// People use the same animated rig as the Hollows, at human scale, dressed in flat colours.
 export function makePerson(color, hair, small = false) {
   const g = new THREE.Group();
-  const m = (c) => new THREE.MeshLambertMaterial({ color: c });
-  const s = small ? 0.78 : 1;
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.65, 0.3), m(color)); body.position.y = 1.15; body.castShadow = true;
-  const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.3, 0.32), m(new THREE.Color(color).multiplyScalar(0.7).getHex())); skirt.position.y = 0.75;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), m(0xdcb08e)); head.position.y = 1.62;
-  const hr = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.12, 0.31), m(hair)); hr.position.set(0, 1.72, 0.03);
-  g.add(body, skirt, head, hr);
-  const legs = [];
-  for (const x of [-0.12, 0.12]) {
-    const leg = new THREE.Group(); leg.position.set(x, 0.62, 0);
-    const lm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.17), m(0x3a3530)); lm.position.y = -0.31;
-    leg.add(lm); g.add(leg); legs.push(leg);
-  }
-  const arms = [];
-  for (const x of [-0.32, 0.32]) {
-    const arm = new THREE.Group(); arm.position.set(x, 1.42, 0);
-    const am = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.13), m(color)); am.position.y = -0.3;
-    arm.add(am); g.add(arm); arms.push(arm);
-  }
-  g.scale.setScalar(s);
-  g.userData = { legs, arms };
+  const model = SkeletonUtils.clone(A.xbot.scene);
+  model.rotation.y = Math.PI;
+  model.scale.setScalar(small ? 0.78 : 0.98);
+  const cloth = new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
+  const trim = new THREE.MeshStandardMaterial({ color: hair, roughness: 0.7 });
+  model.traverse((o) => {
+    if (o.isSkinnedMesh) { o.material = o.name.includes('Joints') ? trim : cloth; o.castShadow = true; o.frustumCulled = false; }
+  });
+  g.add(model);
+  const mixer = new THREE.AnimationMixer(model);
+  const acts = {};
+  for (const c of clips()) acts[c.name] = mixer.clipAction(c);
+  acts.idle.play();
+  mixer.update(Math.random() * 3);
+  g.userData = { mixer, acts, cur: 'idle' };
   return g;
+}
+function setAnim(g, name) {
+  const u = g.userData;
+  if (u.cur === name) return;
+  u.acts[name].reset().play();
+  u.acts[u.cur].crossFadeTo(u.acts[name], 0.3, false);
+  u.cur = name;
 }
 
 export class NPC {
@@ -123,8 +128,7 @@ export class NPC {
       const yaw = Math.atan2(-(P.pos.x - this.pos.x), -(P.pos.z - this.pos.z));
       this.group.rotation.y += (yaw - this.group.rotation.y) * Math.min(1, dt * 3);
     }
-    const ud = this.group.userData;
-    ud.arms[0].rotation.x = Math.sin(this.t * 1.3) * 0.08;
+    if (d < 120) this.group.userData.mixer.update(dt);
     this.marker.position.y = 3.4 + Math.sin(this.t * 3) * 0.12;
     drawMarker(this.marker, G.quests.markerFor(this.id));
   }
@@ -152,12 +156,11 @@ export class Folk {
   update(dt) {
     this.t += dt;
     const ud = this.group.userData;
-    if (this.idle > 0) { this.idle -= dt; ud.legs[0].rotation.x = ud.legs[1].rotation.x = 0; return; }
+    if (this.idle > 0) { this.idle -= dt; setAnim(this.group, 'idle'); ud.mixer.update(dt); return; }
+    setAnim(this.group, 'walk');
+    ud.mixer.update(dt * this.speed / 1.4);
     this.p += this.dir * this.speed * dt;
     if (this.p > this.b || this.p < this.a) { this.dir *= -1; this.p = Math.max(this.a, Math.min(this.b, this.p)); this.idle = 1 + Math.random() * 3; }
     this.place();
-    const s = Math.sin(this.t * this.speed * 5) * 0.5;
-    ud.legs[0].rotation.x = s; ud.legs[1].rotation.x = -s;
-    ud.arms[0].rotation.x = -s * 0.6; ud.arms[1].rotation.x = s * 0.6;
   }
 }

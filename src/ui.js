@@ -144,13 +144,77 @@ export class UI {
   grab(v) {
     if (v === null) { $('#grab').classList.add('hidden'); return; }
     $('#grab').classList.remove('hidden');
+    $('#grab .k').textContent = `MASH ${G.input.glyph('slash')} TO HACK THROUGH ITS FINGERS`;
     $('#grab .bar i').style.width = `calc(${Math.min(1, v) * 100}% - 2px)`;
   }
   prompt(text) {
     const el = $('#prompt');
     if (!text) { el.classList.add('hidden'); return; }
     el.classList.remove('hidden');
-    if (el.dataset.t !== text) { el.dataset.t = text; el.innerHTML = ''; const k = document.createElement('kbd'); k.textContent = 'F'; el.append(k, text); }
+    const key = text + G.input.device;
+    if (el.dataset.t !== key) { el.dataset.t = key; el.innerHTML = ''; const k = document.createElement('kbd'); k.textContent = G.input.glyph('interact'); el.append(k, text); }
+  }
+  deviceChanged() {
+    document.body.classList.toggle('pad', G.input.device === 'pad');
+    const pausedTab = document.querySelector('#tabs .tab.on');
+    if (pausedTab && !document.querySelector('#pause').classList.contains('hidden') && /controls/i.test(pausedTab.textContent)) this.openPause('controls');
+    if (G.input.device === 'pad') { const r = this.activeRoot(); if (r) this.focusFirst(r); }
+  }
+
+  // ---------------- menu navigation (gamepad d-pad / stick, arrow keys) ----------------
+  activeRoot() {
+    const ids = ['#controlsOverlay', '#dialog', '#shop', '#dead', '#chapter', '#pause', '#create', '#title'];
+    for (const id of ids) { const el = document.querySelector(id); if (el && !el.classList.contains('hidden')) return el; }
+    return null;
+  }
+  focusables(root) {
+    return [...root.querySelectorAll('button, input')].filter((e) => !e.disabled && e.offsetParent !== null && !e.closest('.hidden'));
+  }
+  focusFirst(root) {
+    const f = this.focusables(root);
+    if (f.length && !f.includes(document.activeElement)) f[0].focus();
+  }
+  navigate() {
+    const I = G.input;
+    const root = this.activeRoot();
+    if (!root) return null;
+    const items = this.focusables(root);
+    let cur = document.activeElement;
+    if (!items.includes(cur)) { if (I.device === 'pad' && items.length) { items[0].focus(); cur = items[0]; } else cur = null; }
+    const dirs = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    for (const [name, [dx, dy]] of Object.entries(dirs)) {
+      if (!I.hit(name)) continue;
+      if (cur && cur.type === 'range' && dx) {
+        const step = parseFloat(cur.step) || 1;
+        cur.value = Math.min(parseFloat(cur.max), Math.max(parseFloat(cur.min), parseFloat(cur.value) + dx * step * 2));
+        cur.dispatchEvent(new Event('input'));
+        continue;
+      }
+      if (!cur) { if (items[0]) items[0].focus(); continue; }
+      const r0 = cur.getBoundingClientRect(), c0 = [r0.left + r0.width / 2, r0.top + r0.height / 2];
+      let best = null, bs = Infinity;
+      for (const e of items) {
+        if (e === cur) continue;
+        const r = e.getBoundingClientRect(), c = [r.left + r.width / 2, r.top + r.height / 2];
+        const px = (c[0] - c0[0]) * dx + (c[1] - c0[1]) * dy;
+        if (px <= 2) continue;
+        const sx = Math.abs((c[0] - c0[0]) * dy) + Math.abs((c[1] - c0[1]) * dx);
+        const sc = px + sx * 2.5;
+        if (sc < bs) { bs = sc; best = e; }
+      }
+      if (best) { best.focus(); best.scrollIntoView({ block: 'nearest' }); G.audio.play('ui'); }
+    }
+    if (I.padHit.has('confirm') && cur) { I.padHit.clear(); cur.click(); return null; }
+    if (root.id === 'pause' && (I.padHit.has('tabL') || I.padHit.has('tabR'))) {
+      const tabs = [...document.querySelectorAll('#tabs .tab')];
+      const i = tabs.findIndex((t) => t.classList.contains('on'));
+      const n = tabs[(i + (I.padHit.has('tabR') ? 1 : tabs.length - 1)) % tabs.length];
+      n.click();
+      return null;
+    }
+    if (I.hit('back')) return 'back';
+    if (I.padHit.has('journal')) return 'journal';
+    return null;
   }
   section(W) { $('#secName').textContent = W.def.name; $('#secSub').textContent = W.def.sub; }
   notice(text, ms = 2200) {
@@ -271,6 +335,7 @@ export class UI {
         const t = document.createElement('button'); t.className = 'btn'; t.style.marginTop = '8px'; t.style.fontSize = '15px';
         t.textContent = G.save.tracked === id ? 'Tracking' : 'Track';
         t.onclick = () => { G.save.tracked = id; this.openPause('quests'); };
+        t.className = 'btn';
         it.append(t);
       }
       body.append(it);
@@ -321,7 +386,19 @@ export class UI {
       r.oninput = () => { s[key] = parseFloat(r.value); v.textContent = fmt(s[key]); G.applySettings(); };
       row.append(l, r, v); body.append(row);
     };
+    const cyc = (label, key, opts) => {
+      const row = document.createElement('div'); row.className = 'set';
+      const l = document.createElement('span'); l.textContent = label;
+      const b = document.createElement('button'); b.className = 'btn'; b.id = 'set_' + key;
+      const name = (v) => v[0].toUpperCase() + v.slice(1);
+      b.textContent = name(s[key]);
+      b.onclick = () => { s[key] = opts[(opts.indexOf(s[key]) + 1) % opts.length]; b.textContent = name(s[key]); G.applySettings(); };
+      row.append(l, b); body.append(row);
+    };
+    cyc('Graphics quality', 'quality', ['low', 'medium', 'high']);
+    cyc('Blood and gore', 'gore', ['high', 'low', 'off']);
     mk('Mouse sensitivity', 'sens', 0.2, 3, 0.05, (x) => x.toFixed(2));
+    mk('Stick sensitivity', 'padSens', 0.3, 2.5, 0.05, (x) => x.toFixed(2));
     mk('Field of view', 'fov', 60, 95, 1, (x) => x + '°');
     mk('Volume', 'vol', 0, 1, 0.05, (x) => Math.round(x * 100) + '%');
     mk('Render scale', 'scale', 0.5, 1, 0.05, (x) => Math.round(x * 100) + '%');
@@ -332,8 +409,7 @@ export class UI {
       c.onchange = () => { s[key] = c.checked; G.applySettings(); };
       row.append(l, c); body.append(row);
     };
-    tg('Invert mouse Y', 'invert');
-    tg('Shadows', 'shadows');
+    tg('Invert look Y', 'invert');
   }
 
   // ---------------- creation ----------------
@@ -373,18 +449,24 @@ export class UI {
 }
 
 export function controlsList() {
-  const keys = [
-    ['W A S D', 'Run / steer while airborne'], ['Mouse', 'Look and aim tethers'],
-    ['Q / E', 'Fire left / right tether (hold to reel in, release to let go)'], ['Right mouse', 'Fire both tethers together'],
-    ['Left mouse', 'Slash. Faster flight means deeper cuts'], ['Space', 'Jump; in the air, gas thrust toward where you look'],
-    ['Shift', 'Gas dash'], ['R', 'Swap to a fresh blade pair'], ['F', 'Talk, resupply at depots, pass gates'],
-    ['1-4', 'Pick dialogue choices'], ['Tab / J', 'Journal: quests, map, settings'], ['M', 'Map'], ['Esc', 'Pause'],
+  const rows = [
+    ['Move', 'W A S D', 'Left stick'], ['Look / aim', 'Mouse', 'Right stick'],
+    ['Left tether (hold to reel)', 'Q', 'LT'], ['Right tether (hold to reel)', 'E', 'RT'], ['Both tethers', 'Right mouse', 'LB'],
+    ['Slash', 'Left mouse', 'RB'], ['Jump / gas thrust in the air', 'Space', 'A'], ['Gas dash', 'Shift', 'B or L3'],
+    ['Talk / resupply / gates', 'F', 'X'], ['Swap blades', 'R', 'Y'], ['Journal', 'Tab or J', 'Start'], ['Map', 'M', 'View'],
+    ['Menus', 'Mouse, 1-4 for dialogue', 'D-pad, A confirm, B back, LB/RB tabs'],
   ];
-  const d = document.createElement('div'); d.className = 'keys';
-  for (const [k, v] of keys) { const a = document.createElement('kbd'); a.textContent = k; const b = document.createElement('span'); b.textContent = v; d.append(a, b); }
+  const d = document.createElement('div'); d.className = 'keys3';
+  for (const h of ['Action', 'Keyboard + mouse', 'Controller']) { const e = document.createElement('b'); e.textContent = h; d.append(e); }
+  for (const [a, k, p] of rows) {
+    const x = document.createElement('span'); x.textContent = a;
+    const y = document.createElement('kbd'); y.textContent = k;
+    const z = document.createElement('kbd'); z.textContent = p;
+    d.append(x, y, z);
+  }
   const p = document.createElement('p');
   p.style.cssText = 'grid-column:1/-1;font-family:var(--f-body);color:var(--muted);font-size:16px;margin-top:10px';
-  p.textContent = 'Every Hollow has one weak point: the glowing ember seam on the back of its neck. Cut an ankle to drop it to its knees. Green-roofed depots restock gas and blades.';
+  p.textContent = 'Every Hollow dies only when you sever the glowing ember seam on its nape. Cut a foot off to drop it to its knees; cut an arm off to stop it grabbing. If one grabs you, mash slash to hack through its fingers. Green-roofed depots restock gas and blades.';
   d.append(p);
   return d;
 }

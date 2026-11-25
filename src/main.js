@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { Input } from './input.js';
-import { World, SECTIONS, WALL_H } from './world.js';
+import { World, SECTIONS, WALL_H, WALL_T } from './world.js';
 import { Player } from './player.js';
 import { Hollow, Spawner } from './hollows.js';
 import { NPC, NPC_DEFS, Folk } from './npcs.js';
@@ -11,52 +11,89 @@ import { UI, controlsList } from './ui.js';
 import { FX } from './fx.js';
 import { Audio } from './audio.js';
 import { CORPS, newSave, xpForLevel, TIPS } from './data.js';
+import { A, loadAssets } from './assets.js';
+import { U } from './materials.js';
+import { Post } from './post.js';
+import { ViewModel } from './viewmodel.js';
+import { Gore } from './gore.js';
 
 const SAVE_KEY = 'tetherfall_save_v1';
-const DEFAULT_SETTINGS = { sens: 1, fov: 75, vol: 0.7, scale: 1, invert: false, shadows: true };
+const DEFAULT_SETTINGS = { sens: 1, padSens: 1, fov: 80, vol: 0.7, scale: 1, invert: false, quality: 'high', gore: 'high' };
 const $ = (s) => document.querySelector(s);
 
 // ------------------------------------------------------------------ renderer
 const canvas = $('#game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 0.95;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 6000);
-const hemi = new THREE.HemisphereLight(0xcfdcff, 0x6b5a45, 1.05);
+const camera = new THREE.PerspectiveCamera(80, innerWidth / innerHeight, 0.05, 7000);
+const hemi = new THREE.HemisphereLight(0xcfdcff, 0x6b5a45, 0.35);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xffe2b8, 2.1);
+const sun = new THREE.DirectionalLight(0xffe2b8, 3.2);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-const sc = sun.shadow.camera; sc.left = -110; sc.right = 110; sc.top = 110; sc.bottom = -110; sc.near = 10; sc.far = 600;
-sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.6;
+sun.shadow.mapSize.set(4096, 4096);
+const sc = sun.shadow.camera; sc.left = -150; sc.right = 150; sc.top = 150; sc.bottom = -150; sc.near = 10; sc.far = 900;
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.5;
 scene.add(sun); scene.add(sun.target);
 const SUN_DIR = new THREE.Vector3(-0.45, 0.75, 0.4).normalize();
 
+// HDR gradient sky with a sun disk that blooms, plus a drifting cloud layer
 const skyMat = new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
-  uniforms: { top: { value: new THREE.Color() }, bot: { value: new THREE.Color() }, sunDir: { value: SUN_DIR } },
-  vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-  fragmentShader: `uniform vec3 top; uniform vec3 bot; uniform vec3 sunDir; varying vec3 vP;
-    void main(){ float h = clamp(vP.y * 1.6 + 0.12, 0.0, 1.0); vec3 c = mix(bot, top, pow(h, 0.8));
-    float s = max(0.0, dot(normalize(vP), sunDir)); c += vec3(1.0, 0.85, 0.6) * (pow(s, 600.0) * 2.0 + pow(s, 12.0) * 0.25);
-    gl_FragColor = vec4(c, 1.0); }`,
+  uniforms: { top: { value: new THREE.Color() }, hor: { value: new THREE.Color() }, sunDir: { value: SUN_DIR }, sunCol: { value: new THREE.Color() } },
+  vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform vec3 top, hor, sunCol, sunDir; varying vec3 vP;
+    void main(){
+      vec3 d = normalize(vP);
+      float h = max(d.y, 0.0);
+      vec3 c = mix(hor, top, pow(h, 0.45));
+      float s = max(0.0, dot(d, normalize(sunDir)));
+      c += sunCol * (pow(s, 8.0) * 0.35 + pow(s, 64.0) * 0.6);
+      c += sunCol * smoothstep(0.9993, 0.9997, s) * 30.0;
+      c = mix(c, hor * 0.9, smoothstep(0.0, -0.2, d.y));
+      gl_FragColor = vec4(c, 1.0);
+    }`,
 });
-const sky = new THREE.Mesh(new THREE.SphereGeometry(4500, 24, 16), skyMat);
-sky.renderOrder = -1;
+const sky = new THREE.Mesh(new THREE.SphereGeometry(5000, 32, 16), skyMat);
 scene.add(sky);
+const cloudMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, fog: false, side: THREE.BackSide,
+  uniforms: { uT: U.time, uSun: { value: SUN_DIR }, uTint: { value: new THREE.Color(1, 0.92, 0.84) } },
+  vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform float uT; uniform vec3 uSun; uniform vec3 uTint; varying vec3 vP;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+    float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 6; i++) { s += a * n(p); p *= 2.03; a *= 0.5; } return s; }
+    void main(){
+      vec3 d = normalize(vP); if (d.y < 0.0) discard;
+      vec2 uv = d.xz / (d.y + 0.12) * 1.6 + vec2(uT * 0.004, uT * 0.002);
+      float c = smoothstep(0.53, 0.8, fbm(uv));
+      float lit = 0.75 + 0.35 * max(0.0, dot(d, uSun));
+      float fade = smoothstep(0.0, 0.25, d.y);
+      gl_FragColor = vec4(uTint * lit * mix(0.8, 1.15, fbm(uv * 2.0 + 3.0)), c * fade * 0.85);
+    }`,
+});
+const clouds = new THREE.Mesh(new THREE.SphereGeometry(4800, 32, 16), cloudMat);
+scene.add(clouds);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envCache = {};
 
 Object.assign(G, {
   scene, camera, renderer, input: Input, audio: Audio,
   fx: new FX(scene), ui: new UI(), quests: new Quests(), rings: new Rings(scene), insig: new Insignias(scene),
   folk: [], spawners: [], alarm: false, hitstopT: 0, autosave: 0,
 });
+G.vm = new ViewModel();
+G.vm.resize(innerWidth / innerHeight);
+G.post = new Post(renderer, scene, camera, G.vm);
 
 // ------------------------------------------------------------------ save
 function readSave() {
@@ -141,9 +178,10 @@ G.sealBreach = () => {
   G.save.flags.breachSealed = true;
   const W = G.world;
   if (!W || W.id !== 'lowmarch') return;
-  const b = { x0: 198, y0: 0, z0: 440, x1: 242, y1: WALL_H, z1: 448 };
+  const bx = W.poi.breach.x, z1 = W.bounds.z1;
+  const b = { x0: bx - 22, y0: 0, z0: z1 - WALL_T + 2, x1: bx + 22, y1: WALL_H, z1: z1 - 2 };
   W.addDynamicBox(b);
-  const m = new THREE.Mesh(new THREE.BoxGeometry(b.x1 - b.x0, b.y1, b.z1 - b.z0), new THREE.MeshLambertMaterial({ color: 0x7c7366 }));
+  const m = new THREE.Mesh(new THREE.BoxGeometry(b.x1 - b.x0, b.y1, b.z1 - b.z0), new THREE.MeshStandardMaterial({ color: 0x9a9080, map: A.tex.stone, roughness: 0.9 }));
   m.position.set((b.x0 + b.x1) / 2, b.y1 / 2, (b.z0 + b.z1) / 2); m.castShadow = m.receiveShadow = true;
   W.group.add(m);
 };
@@ -164,7 +202,7 @@ G.setupSpawners = () => {
     if (st === 0) {
       G.spawners.push(new Spawner({ max: 4, types: { drudge: 0.75, sprinter: 0.25 }, interval: 6, origin: o, waypoint: { x: wp.x, z: wp.z - 40 } }));
       if (!G.hollows.some((h) => !h.dead && !h.T.static)) {
-        for (let i = 0; i < 3; i++) G.addHollow(Object.assign(new Hollow(i === 2 ? 'sprinter' : 'drudge', 190 + i * 25, 370 - i * 15), { aggro: false }));
+        for (let i = 0; i < 3; i++) G.addHollow(Object.assign(new Hollow(i === 2 ? 'sprinter' : 'drudge', wp.x - 30 + i * 25, wp.z - 70 - i * 15), { aggro: false }));
       }
     }
     if (st === 2) G.spawners.push(new Spawner({ max: 6, types: { drudge: 0.6, sprinter: 0.3, brute: 0.1 }, interval: 3.5, origin: o, waypoint: { x: wp.x, z: wp.z - 20 }, aggro: true }));
@@ -199,13 +237,21 @@ function clearSection() {
 function applyAtmosphere(W) {
   const d = W.def;
   scene.fog = new THREE.Fog(d.fog, d.fogNear, d.fogFar);
-  skyMat.uniforms.top.value.setHex(d.skyTop);
-  skyMat.uniforms.bot.value.setHex(d.skyBot);
   renderer.setClearColor(d.fog);
+  SUN_DIR.set(...d.sun).normalize();
+  sun.color.setHex(d.sunCol);
+  skyMat.uniforms.top.value.setHex(d.skyTop).multiplyScalar(0.55);
+  skyMat.uniforms.hor.value.setHex(d.skyBot).multiplyScalar(1.05);
+  skyMat.uniforms.sunCol.value.setHex(d.sunCol);
+  if (!envCache[d.env]) envCache[d.env] = pmrem.fromEquirectangular(A.env[d.env]).texture;
+  scene.environment = envCache[d.env];
+  G.vm.scene.environment = envCache[d.env];
+  G.vm.sun.color.setHex(d.sunCol);
 }
 
 function buildSection(id) {
   clearSection();
+  if (G.gore) G.gore.reset();
   const W = new World(id, { breachSealed: !!(G.save && G.save.flags.breachSealed) });
   G.world = W;
   scene.add(W.group);
@@ -221,15 +267,16 @@ function populate(W) {
     const n = new NPC(nid, def, spot[0], spot[1]);
     G.npcs.push(n); scene.add(n.group);
   }
-  const count = { lowmarch: 34, ironvale: 46, solspire: 34 }[W.id] || 0;
+  const count = { lowmarch: 30, ironvale: 36, solspire: 30 }[W.id] || 0;
   const B = W.bounds;
   for (let i = 0; i < count; i++) {
     const useX = Math.random() < 0.5 && W.streetsX.length;
     const lines = useX ? W.streetsX : W.streetsZ;
     if (!lines.length) break;
-    const line = lines[Math.floor(Math.random() * lines.length)];
+    // cluster residents around the busy middle of each district
+    const line = lines[Math.floor(lines.length * (0.3 + Math.random() * 0.4))];
     const lo = useX ? B.z0 + 30 : B.x0 + 30, hi = useX ? B.z1 - 30 : B.x1 - 30;
-    const c = lo + Math.random() * (hi - lo);
+    const c = (lo + hi) / 2 + (Math.random() - 0.5) * (hi - lo) * 0.5;
     const a = Math.max(lo, c - 40), b = Math.min(hi, c + 40);
     const f = useX ? new Folk(W.id, line, 0, 'z', a, b, Math.random) : new Folk(W.id, 0, line, 'x', a, b, Math.random);
     G.folk.push(f); scene.add(f.group);
@@ -247,7 +294,6 @@ function gateLock(from, to) {
 
 G.loadSection = (id, fromId = null, savedPos = null) => {
   G.state = 'loading';
-  Input.unlock();
   $('#loadName').textContent = SECTIONS[id].name;
   $('#loadTip').textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
   G.ui.show('#loading');
@@ -261,9 +307,9 @@ G.loadSection = (id, fromId = null, savedPos = null) => {
       P.teleport(g.x, 0.9, g.z + g.inward * 18);
       P.yaw = g.inward > 0 ? Math.PI : 0; P.pitch = -0.05;
     } else if (savedPos) {
-      P.teleport(savedPos[0], Math.max(0.9, savedPos[1]), savedPos[2]);
+      const B = W.bounds;
+      P.teleport(THREE.MathUtils.clamp(savedPos[0], B.x0 + 20, B.x1 - 20), Math.max(0.9, savedPos[1]), THREE.MathUtils.clamp(savedPos[2], B.z0 + 20, B.z1 - 20));
     } else P.teleport(W.respawn.x, 0.9, W.respawn.z);
-    P.modelYaw = P.yaw;
     G.save.section = id;
     G.insig.setup(W);
     G.quests.setupSection();
@@ -273,7 +319,7 @@ G.loadSection = (id, fromId = null, savedPos = null) => {
     G.ui.show('#loading', false);
     G.ui.show('#hud');
     G.state = 'play';
-    G.ui.notice('Click to take control', 1600);
+    G.ui.notice(Input.device === 'pad' ? 'Controller ready' : 'Click to take control', 1600);
     G.saveGame();
   }, 60);
 };
@@ -322,7 +368,13 @@ G.applySettings = () => {
   const s = G.save.settings;
   Audio.setVolume(s.vol);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * s.scale);
-  renderer.shadowMap.enabled = s.shadows; sun.castShadow = s.shadows;
+  renderer.setSize(innerWidth, innerHeight);
+  const shadows = s.quality !== 'low';
+  renderer.shadowMap.enabled = shadows; sun.castShadow = shadows;
+  const ms = s.quality === 'high' ? 4096 : 2048;
+  if (sun.shadow.mapSize.x !== ms) { sun.shadow.mapSize.set(ms, ms); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  if (G.post.q !== s.quality) G.post.build(s.quality);
+  G.post.setSize(innerWidth, innerHeight);
 };
 
 // ------------------------------------------------------------------ menus
@@ -334,32 +386,44 @@ function openPause(tab) {
 function closePause() { G.ui.show('#pause', false); G.resume(); }
 
 Input.init(canvas);
+Input.onDevice = () => G.ui.deviceChanged();
 Input.onLockChange = (locked) => {
-  if (!locked && G.state === 'play') openPause('quests');
+  // only a lock loss we did not cause ourselves (the player pressed Esc) pauses the game
+  if (!locked && G.state === 'play' && Input.device !== 'pad' && performance.now() - (Input.unlockAt || 0) > 800) openPause('quests');
 };
 Input.onKey = (e) => {
   const st = G.state;
   if (st === 'dialog') {
     const n = parseInt(e.key, 10);
     if (n >= 1 && n <= 9) G.ui.choose(n - 1);
-    if (e.code === 'Escape') G.ui.closeDialog();
     return;
   }
-  if (st === 'play') {
-    if (e.code === 'Tab' || e.code === 'KeyJ') openPause('quests');
-    if (e.code === 'KeyM') openPause('map');
-    if (e.code === 'Escape' && Input.free) openPause('quests');
-    return;
-  }
-  if (st === 'menu' && $('#chapter').classList.contains('hidden')) {
-    if ((e.code === 'Escape' || e.code === 'Tab') && performance.now() - (G.pauseAt || 0) > 350) closePause();
-    return;
-  }
-  if (st === 'shop' && e.code === 'Escape') G.ui.closeShop();
+  if (st === 'play' && e.code === 'Escape' && Input.free) openPause('quests');
 };
+
+// gamepad / keyboard navigation for every menu and the actions that open them
+function menuInput() {
+  const st = G.state;
+  if (st === 'play') {
+    if (Input.hit('journal')) openPause('quests');
+    else if (Input.hit('map')) openPause('map');
+    return;
+  }
+  if (st === 'loading') return;
+  const nav = G.ui.navigate();
+  if (!nav) return;
+  if (nav === 'back') {
+    if (st === 'dialog') G.ui.closeDialog();
+    else if (st === 'shop') G.ui.closeShop();
+    else if (st === 'menu' && $('#chapter').classList.contains('hidden') && performance.now() - (G.pauseAt || 0) > 350) closePause();
+    else if (st === 'create') { G.ui.show('#create', false); G.ui.show('#title'); G.state = 'title'; }
+  }
+  if (nav === 'journal' && st === 'menu' && $('#chapter').classList.contains('hidden') && performance.now() - (G.pauseAt || 0) > 350) closePause();
+}
+
 canvas.addEventListener('click', () => {
   Audio.init();
-  if (G.state === 'play' && !Input.locked) Input.lock();
+  if (G.state === 'play' && !Input.locked) { Input.setDevice('kbm'); Input.lock(); }
 });
 
 $('#bResume').onclick = closePause;
@@ -372,12 +436,12 @@ $('#bChapter').onclick = () => { G.ui.show('#chapter', false); G.resume(); };
 function startGame(save) {
   G.save = save;
   save.settings = { ...DEFAULT_SETTINGS, ...(save.settings || {}) };
+  delete save.settings.shadows;
   save.best = save.best || {}; save.flags = save.flags || {}; save.found = save.found || [];
   Audio.init();
   G.applySettings();
   if (!G.player) G.player = new Player(scene, camera);
   G.player.setCoat(save.coat);
-  if (save.corps) G.player.setCape(CORPS[save.corps].color);
   G.player.refreshStats(true);
   G.ui.show('#title', false); G.ui.show('#create', false);
   G.loadSection(save.section || 'lowmarch', null, save.pos);
@@ -393,26 +457,38 @@ $('#bNew').onclick = () => {
     return;
   }
   G.ui.show('#title', false); G.ui.show('#create');
+  G.state = 'create';
   G.ui.setupCreate((name, origin, coat) => {
     const s = newSave(name, origin, coat);
-    s.pos = [-185, 0.9, -330];
+    s.pos = G.world.newGame || [-185, 0.9, -530];
     startGame(s);
-    setTimeout(() => G.ui.toast('Find Instructor Maren Holt in the training yard. Walk up and press F.'), 1500);
+    setTimeout(() => G.ui.toast(`Find Instructor Maren Holt in the training yard. Walk up and press ${Input.glyph('interact')}.`), 1500);
   });
 };
-$('#bBack').onclick = () => { G.ui.show('#create', false); G.ui.show('#title'); };
+$('#bBack').onclick = () => { G.ui.show('#create', false); G.ui.show('#title'); G.state = 'title'; };
 $('#bControls').onclick = () => {
-  const ov = document.createElement('div'); ov.className = 'screen'; ov.style.zIndex = 30;
+  const ov = document.createElement('div'); ov.className = 'screen'; ov.style.zIndex = 30; ov.id = 'controlsOverlay';
   const p = document.createElement('div'); p.className = 'panel stack';
   const h = document.createElement('h2'); h.textContent = 'Controls';
   const b = document.createElement('button'); b.className = 'btn primary'; b.textContent = 'Close';
-  b.onclick = () => ov.remove();
+  b.onclick = () => { ov.remove(); $('#bControls').focus(); };
   p.append(h, controlsList(), b); ov.append(p); document.body.append(ov);
+  b.focus();
 };
 
-// ------------------------------------------------------------------ title backdrop
+// ------------------------------------------------------------------ boot: load assets, then show the title over Lowmarch
 let titleT = 0;
-buildSection('lowmarch');
+const titleBtns = ['#bContinue', '#bNew', '#bControls'];
+titleBtns.forEach((b) => { $(b).disabled = true; });
+loadAssets(renderer, (p) => { $('#loadBar').style.width = Math.round(p * 100) + '%'; })
+  .then(() => {
+    G.gore = new Gore(scene);
+    buildSection('lowmarch');
+    titleBtns.forEach((b) => { $(b).disabled = false; });
+    $('#loadWrap').classList.add('hidden');
+    requestAnimationFrame(frame);
+  })
+  .catch((e) => { $('#loadMsg').textContent = 'Could not load game assets: ' + e.message; });
 
 // ------------------------------------------------------------------ loop
 let last = performance.now();
@@ -420,13 +496,17 @@ function frame(now) {
   requestAnimationFrame(frame);
   let dt = Math.min(0.05, (now - last) / 1000);
   last = now;
+  Input.poll(dt);
   if (G.hitstopT > 0) { G.hitstopT -= dt; dt *= 0.12; }
   G.time += dt;
+  U.time.value = G.time;
   const W = G.world;
-  if (G.state === 'title' || !G.player) {
-    titleT += dt * 0.04;
-    camera.position.set(Math.cos(titleT) * 150, 60 + Math.sin(titleT * 2) * 8, Math.sin(titleT) * 150);
-    camera.lookAt(0, 30, 0);
+  menuInput();
+  if (G.state === 'title' || G.state === 'create' || !G.player) {
+    titleT += dt * 0.035;
+    camera.position.set(Math.cos(titleT) * 260, 95 + Math.sin(titleT * 2) * 12, Math.sin(titleT) * 260);
+    camera.rotation.set(0, 0, 0);
+    camera.lookAt(0, 40, 0);
   } else if (G.state === 'play') {
     G.player.update(dt);
     for (const h of G.hollows) h.update(dt);
@@ -438,7 +518,7 @@ function frame(now) {
     for (const n of G.npcs) n.update(dt);
     const pp = G.player.pos;
     for (const f of G.folk) {
-      const near = Math.abs(f.pos.x - pp.x) < 160 && Math.abs(f.pos.z - pp.z) < 160;
+      const near = Math.abs(f.pos.x - pp.x) < 140 && Math.abs(f.pos.z - pp.z) < 140;
       if (near && !G.alarm) { f.group.visible = true; f.update(dt); } else f.group.visible = false;
     }
     G.quests.update(dt);
@@ -446,32 +526,40 @@ function frame(now) {
     G.insig.update(dt);
     const it = findInteract();
     G.ui.prompt(it ? it.label : null);
-    if (it && Input.hit('KeyF') && !G.player.grabbedBy) it.fn();
+    if (it && Input.hit('interact') && !G.player.grabbedBy) it.fn();
     G.autosave += dt;
     if (G.autosave > 30) { G.autosave = 0; G.saveGame(); }
     if (G.alarm && Math.random() < dt / 9) G.audio.play('bell');
   } else if (G.state === 'dead') {
     for (const h of G.hollows) h.update(dt);
   }
-  if (G.player && G.state !== 'title') G.ui.update(dt);
+  if (G.player && !['title', 'create'].includes(G.state)) G.ui.update(dt);
   if (W) {
     for (const a of W.animated) a.rotation.z += dt * a.userData.spin;
     if (W.lanternCore) W.lanternCore.scale.setScalar(1 + Math.sin(G.time * 2.2) * 0.05);
   }
   G.fx.update(dt);
+  if (G.gore) G.gore.update(dt);
+  // shadow camera follows the view, snapped to texels to avoid shimmering
   const focus = G.player && G.state !== 'title' ? G.player.pos : new THREE.Vector3(0, 0, 0);
-  sun.position.copy(focus).addScaledVector(SUN_DIR, 300);
-  sun.target.position.copy(focus);
+  const snap = (300 / sun.shadow.mapSize.x);
+  const fx = Math.round(focus.x / snap) * snap, fz = Math.round(focus.z / snap) * snap;
+  sun.position.set(fx, focus.y, fz).addScaledVector(SUN_DIR, 400);
+  sun.target.position.set(fx, focus.y, fz);
   sky.position.copy(camera.position);
-  renderer.render(scene, camera);
+  clouds.position.copy(camera.position);
+  G.vm.root.visible = G.player && G.state !== 'title' && G.state !== 'create' && !G.player.dead;
+  G.post.update(dt, G.player && G.state === 'play' ? G.player.vel.length() : 0);
+  G.post.render();
   Input.endFrame();
 }
-requestAnimationFrame(frame);
 
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  G.vm.resize(innerWidth / innerHeight);
+  G.post.setSize(innerWidth, innerHeight);
 });
 
 // expose for debugging in the console

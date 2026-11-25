@@ -1,62 +1,73 @@
 # Tetherfall
 
-*Wardens of the Three Bulwarks.* A fast, third-person giant-slaying action RPG that runs in the browser.
+*Wardens of the Three Bulwarks.* A fast, first-person giant-slaying action RPG that runs in the browser, playable with a **controller** or mouse and keyboard.
 
-Your city is ringed by three great walls. Outside them, grinning grey giants called **Hollows** roam a forest of enormous trees. You are a new Warden with a **tether rig**: twin grappling lines, an aether-gas thruster and a pair of sunsteel blades. Swing through the city, find the ember seam on the back of a Hollow's neck, and cut it at speed.
+Your city is ringed by three great walls. Outside them, grinning giants called **Hollows** roam a forest of enormous trees. You are a new Warden with a **tether rig**: twin grappling lines, an aether-gas thruster and a pair of sunsteel blades. Swing between towers, find the ember seam on the back of a Hollow's neck, and cut it at speed.
+
+> Contains heavy, stylised blood and gore (dismemberment, arterial spray, screen splatter). It can be turned down to Low or Off in Settings.
 
 ## Play
 
-- **Easiest:** open `dist/tetherfall.html` in Chrome, Edge or Firefox. It is one self-contained file and works straight from disk.
-- **From source:** `npm install`, then `npm run build`, then serve the folder (e.g. `npx serve .`) and open `index.html`.
+- **Easiest:** open `dist/tetherfall.html` in Chrome or Edge. It is one self-contained file (assets embedded) and works straight from disk.
+- **Hosted:** serve `dist/web/` (e.g. `npx serve dist/web`) and open it.
+- **From source:** `npm install`, then `npm run build` (regenerates textures with Python 3 + numpy + Pillow, then bundles).
 
-Click the game to capture the mouse. Esc pauses. Progress autosaves in the browser.
+Plug in a controller and press any button, or click the game to capture the mouse.
 
 ## Controls
 
-| Key | Action |
-| --- | --- |
-| W A S D | Run, or steer while airborne |
-| Mouse | Look and aim |
-| Q / E | Fire left / right tether. Hold to reel in, release to let go |
-| Right mouse | Fire both tethers |
-| Left mouse | Slash. Faster flight = deeper cut |
-| Space | Jump; in the air, gas thrust toward where you look |
-| Shift | Gas dash |
-| R | Swap to a fresh blade pair |
-| F | Talk, resupply at depots, pass through gates |
-| 1-4 | Dialogue choices |
-| Tab / J, M | Journal, map |
+| Action | Keyboard + mouse | Controller |
+| --- | --- | --- |
+| Move | W A S D | Left stick |
+| Look / aim | Mouse | Right stick (small aim assist on tethers) |
+| Left / right tether (hold to reel in) | Q / E | LT / RT |
+| Both tethers | Right mouse | LB |
+| Slash | Left mouse | RB |
+| Jump; gas thrust in the air | Space | A |
+| Gas dash | Shift | B or L3 |
+| Talk, resupply, gates | F | X |
+| Swap blades | R | Y |
+| Journal / map | Tab or J / M | Start / View |
+| Menus | Mouse, 1-4 in dialogue | D-pad, A, B, LB/RB for tabs |
 
 ## The world: one section per wall
 
-| Section | Wall | What's there |
-| --- | --- | --- |
-| **The Greenreach Wilds** | beyond the Outer Bulwark | Giant forest, the ruins of Hollowmere, Greyhorn Tower, the Thornback's meadow, roaming Hollows |
-| **Lowmarch** | inside the Outer Bulwark | Farm town, windmills, training yard, bell tower, the cracked south wall |
-| **Ironvale** | inside the Middle Bulwark | Dense industrial city, canal, Warden HQ, rig workshops, training arena |
-| **Solspire** | inside the Crown Bulwark | The capital: towering spires, the palace and its Lantern, the Archive |
-
-Each section is its own large procedurally built map (900 m to 1.6 km across). You travel between them through the gates.
+| Section | Wall | Size | What's there |
+| --- | --- | --- | --- |
+| **The Greenreach Wilds** | beyond the Outer Bulwark | 2 × 2 km | 680 giant trees, the ruins of Hollowmere, Greyhorn Tower, the Thornback's meadow |
+| **Lowmarch** | inside the Outer Bulwark | 1.4 × 1.3 km | Farm town, windmills, eight stone keeps, training yard, the cracked south wall |
+| **Ironvale** | inside the Middle Bulwark | 1.8 × 1.6 km | Brick tower district up to ~150 m, six Foundry Spires, canal, Warden HQ |
+| **Solspire** | inside the Crown Bulwark | 1.6 × 1.6 km | The capital: towers up to 180 m, the Seven Spires (up to 230 m), palace and Lantern |
 
 ## Combat
 
-- Every Hollow dies only when you sever the glowing **ember seam** on the nape. Damage scales with your speed.
-- Cut an **ankle** to drop a Hollow to its knees, which lowers the nape.
-- **Drudges** are the standard type, **Sprinters** leap at you, and **Brutes** stomp and need two cuts. The **Thornback** has an armored nape: cut both ankles first.
-- Hollows can grab you. Mash F or click to cut yourself free.
-- Blades wear out as you cut. Press R to swap pairs, and restock at green-roofed depots.
+- Hollows only die when you sever the glowing **ember seam** on the nape. Damage scales with speed.
+- **Feet:** cut one off and the Hollow drops to its knees. Thornbacks need both feet gone before their plated nape opens.
+- **Arms:** cut one off and that arm can't grab or swipe. If you're grabbed, mash slash to hack through the gripping arm.
+- Severed limbs fly off, stumps pump blood, and everything regrows after a while.
+- Blades get bloody and wear out. Swap pairs, and restock at green-roofed depots.
 
-## Roleplay
+## Graphics
 
-- Create your Warden: name, origin (Lowmarch farmhand, Ironvale forge-born, Solspire runaway) and coat.
-- Swear to a corps: Skyward Vanguard, Bulwark Watch or Crown Lancers. Each has its own perk and dialogue.
-- A five-chapter main story with three endings, plus side quests: Pell's satchel, the Courier Run and Spire Run races, repeatable Wilds bounties, and 24 lost insignia hidden on high rooftops.
-- Upgrade your rig with marks: gas tank, reel motor, hook range, blade edge, blade magazine, harness.
+- Physically based materials with world-space (triplanar) texturing and normal maps.
+- Image-based lighting from HDR skies, plus 4K sun shadows.
+- Screen-space ambient occlusion (N8AO) and bloom.
+- Windows that light up, and water with moving normals.
+- Speed blur and chromatic aberration at high speed, plus a hurt vignette.
+- Quality presets (Low / Medium / High) in Settings.
+
+## Credits (free assets)
+
+- **Skies / lighting:** Poly Haven HDRIs *forest_slope*, *kiara_1_dawn*, *venice_sunset* (CC0, via the pmndrs/drei-assets mirror) and *blouberg_sunrise_2* (CC0, via the three.js examples).
+- **Giants, NPCs:** "X Bot" rigged character with idle/walk/run animations, from Mixamo via the three.js examples.
+- **Textures:** brick, grass and water normals from the three.js examples (MIT-licensed repository). Plaster, stone, roof tiles, cobblestone, dirt, bark, wood, foliage, skin and blood splats are generated by `tools/gen_assets.py`.
+- **Code libraries:** three.js (MIT), n8ao (ISC), postprocessing (Zlib).
+- **Sound:** synthesized at runtime with WebAudio; there are no audio files.
 
 ## Code layout
 
-- `src/world.js` builds the sections, plus collision, spatial grid and raycasts
-- `src/player.js` handles tether physics, slashing and the camera
-- `src/hollows.js` has the Hollow models, AI, weak points and spawners
-- `src/quests.js`, `src/dialogue.js` and `src/npcs.js` are the roleplay layer
-- `src/ui.js`, `src/fx.js` and `src/audio.js` cover the HUD and menus, particles, and synthesized sound (there are no asset files)
+- `src/world.js` builds the sections, plus collision, spatial grid and raycasts. `src/materials.js` holds the PBR shaders.
+- `src/player.js` handles tether physics and the first-person camera. `src/viewmodel.js` draws the arms and blades.
+- `src/hollows.js` has the animated giants, AI, weak points and dismemberment. `src/gore.js` has blood, decals, chunks and screen blood.
+- `src/input.js` unifies keyboard, mouse and gamepad. `src/post.js` runs post-processing.
+- `src/quests.js`, `src/dialogue.js` and `src/npcs.js` are the roleplay layer. `src/ui.js`, `src/fx.js` and `src/audio.js` cover the HUD and menus, particles and sound.

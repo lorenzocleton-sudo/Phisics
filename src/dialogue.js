@@ -5,6 +5,7 @@ import { CORPS } from './data.js';
 // A choice with no `next` closes the conversation after running `act`.
 
 const Q = () => G.quests;
+const K = (a) => G.input.glyph(a);
 const S = () => G.save;
 const bye = (t = 'Farewell.') => ({ t });
 
@@ -34,7 +35,7 @@ export const DIALOGUE = {
         text: `Another recruit with a fresh harness and clean boots. I'm Maren Holt. I've trained Wardens in this yard for nineteen years, and I've buried more of them than I'd like.\n\n${originLine('maren')}`,
         choices: [
           { t: 'Teach me the rig.', next: {
-            text: 'Your rig fires two tethers. Q is the left line, E is the right, right mouse fires both. Hold to reel in, let go to release.\n\nSpace in the air burns aether gas and thrusts you where you look. Shift is a quick dash. Your gas is not infinite, so mind the gauge.\n\nFly through the five rings above the frames. Hook a crossbeam, swing, and let go at the bottom of the arc. That is where you are fastest.',
+            text: `Your rig fires two tethers. ${K('hookL')} is the left line, ${K('hookR')} is the right, ${K('both')} fires both. Hold to reel in, let go to release.\n\n${K('jump')} in the air burns aether gas and thrusts you where you look. ${K('dash')} is a quick dash. Your gas is not infinite, so mind the gauge.\n\nFly through the five rings above the frames. Hook a crossbeam, swing, and let go at the bottom of the arc. That is where you are fastest.`,
             choices: [{ t: "I'm on it.", act: () => q.start('q_tether') }],
           } },
           { t: 'What are the Hollows, exactly?', next: () => ({
@@ -51,7 +52,7 @@ export const DIALOGUE = {
       if (!G.rings.active) G.rings.start('yard', 0, 'q_tether');
       return { text: "The rings won't fly through themselves. Hook a crossbeam on the frames and swing through. The glowing ring is the next one.", choices: [bye('Right.')] };
     }
-    if (st === 1) return { text: "Now the dummies. See the orange seam on the back of the neck? Come in fast and left click as you pass. A slow cut won't get through.\n\nHit the ankles if you want to practise dropping one first.", choices: [bye('Got it.')] };
+    if (st === 1) return { text: `Now the dummies. See the orange seam on the back of the neck? Come in fast and slash (${K('slash')}) as you pass. A slow cut won't get through.\n\nOn a real Hollow, take a foot off first and it drops to its knees. Take an arm and it can't grab you.`, choices: [bye('Got it.')] };
     if (st === 2) {
       const pick = (id) => ({
         t: `${CORPS[id].name}: "${CORPS[id].motto}"  (${CORPS[id].perk})`,

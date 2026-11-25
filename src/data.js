@@ -53,10 +53,11 @@ export function newSave(name, origin, coat) {
 export const TIPS = [
   'Hold a tether key to reel in. Let go at the bottom of a swing to keep your speed.',
   'Speed is damage. A slow cut barely marks the seam; a fast one severs it.',
-  'Cut a Hollow at the ankle and it drops to its knees, nape low and exposed.',
+  'Cut a Hollow\'s foot off and it drops to its knees, nape low and exposed. Severed limbs grow back.',
   'Thornbacks wear bone plates over the nape. Take out both ankles first.',
-  'Out of gas? Press F at any green-roofed depot to restock gas and blades.',
+  'Out of gas? Use any green-roofed depot to restock gas and blades.',
   'Brutes need two good cuts. Sprinters leap, so stay above them.',
   'Lost insignias sit on the highest rooftops. A collector in Solspire pays for them.',
-  'Space in the air burns gas to thrust where you look. Shift dashes.',
+  'Jump in the air to burn gas and thrust where you look. Dash for a burst of speed.',
+  'Grabbed? Mash slash to hack through its fingers. Cut an arm off and it cannot grab you at all.',
 ];
