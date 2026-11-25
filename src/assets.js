@@ -29,7 +29,7 @@ export async function loadAssets(renderer, onProgress) {
   for (const n of TEX) jobs.push(loadTex(n + '.jpg', !n.endsWith('_n')).then((t) => { A.tex[n] = t; }));
   for (const n of ENV) jobs.push(loadTex(n + '.jpg', true).then((t) => { t.mapping = THREE.EquirectangularReflectionMapping; A.env[n] = t; }));
   jobs.push(loadTex('splat.png', false).then((t) => { A.splat = t; }));
-  jobs.push(new Promise((res, rej) => new GLTFLoader().load(url('xbot.glb'), (g) => { A.xbot = g; tick(); res(); }, undefined, rej)));
+  jobs.push(new Promise((res, rej) => new GLTFLoader().load(url('xbot.json'), (g) => { A.xbot = g; tick(); res(); }, undefined, rej)));
   await Promise.all(jobs);
   A.ready = true;
   return A;

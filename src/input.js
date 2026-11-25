@@ -55,6 +55,9 @@ export const Input = {
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === canvas;
       if (this.locked) this.fails = 0;
+      // remember whether this unlock was requested by the game or by the player pressing Esc
+      this.lastUnlockWasOurs = !this.locked && !!this.selfUnlock;
+      if (!this.locked) this.selfUnlock = false;
       if (!this.locked) this.mb.clear();
       if (this.onLockChange) this.onLockChange(this.locked);
     });
@@ -69,7 +72,7 @@ export const Input = {
     if (this.free || this.locked || this.device === 'pad') return;
     try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { this.fails++; }
   },
-  unlock() { if (document.pointerLockElement) { this.unlockAt = performance.now(); document.exitPointerLock(); } },
+  unlock() { if (document.pointerLockElement) { this.selfUnlock = true; document.exitPointerLock(); } },
 
   // poll the first connected gamepad; call once per frame before reading actions
   poll(dt) {

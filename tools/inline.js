@@ -6,8 +6,18 @@ const fs = require('fs');
 const path = require('path');
 const html = fs.readFileSync('index.html', 'utf8');
 const js = fs.readFileSync('dist/game.js', 'utf8').replace(/<\/script/gi, '<\\/script');
-const files = fs.readdirSync('assets').filter((f) => /\.(jpg|png|glb)$/.test(f));
-const mime = { jpg: 'image/jpeg', png: 'image/png', glb: 'model/gltf-binary' };
+// GLB -> self-contained glTF JSON (some hosts only serve common web types)
+{
+  const glb = fs.readFileSync('assets/xbot.glb');
+  const jsonLen = glb.readUInt32LE(12);
+  const gltf = JSON.parse(glb.subarray(20, 20 + jsonLen).toString('utf8'));
+  const binStart = 20 + jsonLen + 8;
+  const bin = glb.subarray(binStart, binStart + glb.readUInt32LE(20 + jsonLen));
+  gltf.buffers[0].uri = 'data:application/octet-stream;base64,' + bin.toString('base64');
+  fs.writeFileSync('assets/xbot.json', JSON.stringify(gltf));
+}
+const files = fs.readdirSync('assets').filter((f) => /\.(jpg|png|json)$/.test(f));
+const mime = { jpg: 'image/jpeg', png: 'image/png', json: 'application/json' };
 const embedded = {};
 for (const f of files) embedded[f] = `data:${mime[f.split('.').pop()]};base64,` + fs.readFileSync(path.join('assets', f)).toString('base64');
 const standalone = html.replace('<script src="dist/game.js"></script>',

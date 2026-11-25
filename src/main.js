@@ -389,7 +389,7 @@ Input.init(canvas);
 Input.onDevice = () => G.ui.deviceChanged();
 Input.onLockChange = (locked) => {
   // only a lock loss we did not cause ourselves (the player pressed Esc) pauses the game
-  if (!locked && G.state === 'play' && Input.device !== 'pad' && performance.now() - (Input.unlockAt || 0) > 800) openPause('quests');
+  if (!locked && G.state === 'play' && Input.device !== 'pad' && !Input.lastUnlockWasOurs) openPause('quests');
 };
 Input.onKey = (e) => {
   const st = G.state;
