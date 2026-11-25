@@ -213,6 +213,7 @@ body.touch #objective { right: calc(86px + env(safe-area-inset-right)); width: m
 body.touch #toasts { top: calc(150px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); justify-items: center; }
 body.touch #prompt { pointer-events: auto; bottom: calc(150px + env(safe-area-inset-bottom)); padding: 12px 20px; }
 body.touch #grab { top: 40%; }
+#bootErr { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 100; padding: 12px 14px; background: #3a0f0c; color: #ffe1dc; border: 1px solid #c8443a; font: 600 15px var(--f-ui); }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 </style>
 </head>
@@ -304,6 +305,23 @@ body.touch #grab { top: 40%; }
 <div id="chapter" class="screen hidden"><div class="panel"><div class="eyebrow">Chapter one complete</div><h2 id="chTitle"></h2><p id="chText"></p><button class="btn primary" id="bChapter">Return to the rooftops</button></div></div>
 <div id="notice" class="hidden"></div>
 
+<script>
+// Show any startup error on screen so it can be reported.
+(function () {
+  function show(msg) {
+    var el = document.getElementById('bootErr');
+    if (!el) { el = document.createElement('div'); el.id = 'bootErr'; document.body.appendChild(el); }
+    el.textContent = 'Tetherfall hit a problem: ' + msg + '  (Send this message to Claude.)';
+  }
+  window.__tfShowError = show;
+  window.addEventListener('error', function (e) { show((e.message || 'error') + (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : '')); });
+  window.addEventListener('unhandledrejection', function (e) { show(String(e.reason && (e.reason.message || e.reason))); });
+  try {
+    var c = document.createElement('canvas');
+    if (!c.getContext('webgl2')) show('this browser has no WebGL 2 support, which the game needs. Try Chrome or Safari 15+, and turn off Low Power Mode.');
+  } catch (err) { show('WebGL check failed: ' + err.message); }
+})();
+</script>
 <script src="dist/game.js"></script>
 </body>
 </html>

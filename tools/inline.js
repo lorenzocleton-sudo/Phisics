@@ -24,6 +24,14 @@ const standalone = html.replace('<script src="dist/game.js"></script>',
   () => `<script>window.__TF_ASSETS=${JSON.stringify(embedded)};</script>\n<script>${js}</script>`);
 fs.writeFileSync('dist/tetherfall.html', standalone);
 console.log('wrote dist/tetherfall.html', (standalone.length / 1e6).toFixed(1) + ' MB');
+{
+  const t = standalone.match(/<title>[\s\S]*?<\/title>/)[0];
+  const l = (standalone.match(/<link [^>]*>/g) || []).join('\n');
+  const st = standalone.match(/<style>[\s\S]*?<\/style>/)[0];
+  const bd = standalone.slice(standalone.indexOf('<body>') + 6, standalone.lastIndexOf('</body>'));
+  fs.writeFileSync('dist/play.html', `${t}\n${l}\n${st}\n${bd}`);
+  console.log('wrote dist/play.html (page body, assets embedded)');
+}
 
 fs.mkdirSync('dist/web/assets', { recursive: true });
 for (const f of files) fs.copyFileSync(path.join('assets', f), path.join('dist/web/assets', f));

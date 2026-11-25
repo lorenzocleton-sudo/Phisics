@@ -372,7 +372,7 @@ G.applySettings = () => {
   renderer.setSize(innerWidth, innerHeight);
   const shadows = s.quality !== 'low';
   renderer.shadowMap.enabled = shadows; sun.castShadow = shadows;
-  const ms = s.quality === 'high' ? 4096 : 2048;
+  const ms = s.quality === 'high' && !isTouch() ? 4096 : 2048;
   if (sun.shadow.mapSize.x !== ms) { sun.shadow.mapSize.set(ms, ms); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   if (G.post.q !== s.quality) G.post.build(s.quality);
   G.post.setSize(innerWidth, innerHeight);
@@ -393,6 +393,7 @@ if (isTouch() && !navigator.getGamepads?.()?.some((p) => p)) {
   Input.setDevice('touch');
   // lighter graphics from the very first frame on tablets and phones
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * 0.7);
+  sun.shadow.mapSize.set(2048, 2048);
   renderer.setSize(innerWidth, innerHeight);
   G.post.build('medium');
   G.post.setSize(innerWidth, innerHeight);
@@ -446,7 +447,8 @@ $('#bChapter').onclick = () => { G.ui.show('#chapter', false); G.resume(); };
 function startGame(save) {
   G.save = save;
   // tablets and phones start on lighter graphics; the auto-adjuster can lower it further
-  const base = isTouch() ? { ...DEFAULT_SETTINGS, quality: 'medium', scale: 0.7 } : DEFAULT_SETTINGS;
+  let lowMem = false; try { lowMem = localStorage.getItem('tetherfall_lowmem') === '1'; } catch (e) { /* ignore */ }
+  const base = lowMem ? { ...DEFAULT_SETTINGS, quality: 'low', scale: 0.6 } : isTouch() ? { ...DEFAULT_SETTINGS, quality: 'medium', scale: 0.7 } : DEFAULT_SETTINGS;
   save.settings = { ...base, ...(save.settings || {}) };
   delete save.settings.shadows;
   save.best = save.best || {}; save.flags = save.flags || {}; save.found = save.found || [];
@@ -500,7 +502,9 @@ loadAssets(renderer, (p) => { $('#loadBar').style.width = Math.round(p * 100) + 
     $('#loadWrap').classList.add('hidden');
     requestAnimationFrame(frame);
   })
-  .catch((e) => { $('#loadMsg').textContent = 'Could not load game assets: ' + e.message; });
+  .catch((e) => { $('#loadMsg').textContent = 'Could not load game assets: ' + (e && e.message ? e.message : e); if (window.__tfShowError) window.__tfShowError('asset loading failed: ' + (e && e.message ? e.message : e)); });
+setTimeout(() => { if (!A.ready && window.__tfShowError) window.__tfShowError('assets are still loading after 60 seconds (' + $('#loadBar').style.width + ' done).'); }, 60000);
+canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); if (window.__tfShowError) window.__tfShowError('the graphics chip ran out of memory. Reload the page; the game will start on lower settings.'); try { localStorage.setItem('tetherfall_lowmem', '1'); } catch (er) { /* ignore */ } });
 
 // drop graphics quality automatically if the device can't keep up
 let fpsAcc = 0, fpsN = 0, fpsT = 0, slowFor = 0;
