@@ -213,7 +213,7 @@ export class Quests {
     if (!id) {
       if (!this.S.q_tether && G.world.id === 'lowmarch') {
         const sp = G.world.npcSpots.maren;
-        return { id: null, title: 'Recruit', text: 'Find Instructor Maren Holt in the training yard and press F to talk', pos: new THREE.Vector3(sp[0], 2.5, sp[1]) };
+        return { id: null, title: 'Recruit', text: G.input.device === 'touch' ? 'Find Instructor Maren Holt in the training yard and tap the Talk prompt' : `Find Instructor Maren Holt in the training yard and press ${G.input.glyph('interact')} to talk`, pos: new THREE.Vector3(sp[0], 2.5, sp[1]) };
       }
       return null;
     }
