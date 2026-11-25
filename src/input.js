@@ -56,8 +56,9 @@ export const Input = {
       this.locked = document.pointerLockElement === canvas;
       if (this.locked) this.fails = 0;
       // remember whether this unlock was requested by the game or by the player pressing Esc
+      // (Chrome can fire several unlock events for one exit, so the flag holds until the lock is regained)
       this.lastUnlockWasOurs = !this.locked && !!this.selfUnlock;
-      if (!this.locked) this.selfUnlock = false;
+      if (this.locked) this.selfUnlock = false;
       if (!this.locked) this.mb.clear();
       if (this.onLockChange) this.onLockChange(this.locked);
     });
