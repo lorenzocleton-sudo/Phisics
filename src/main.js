@@ -16,6 +16,7 @@ import { U } from './materials.js';
 import { Post } from './post.js';
 import { ViewModel } from './viewmodel.js';
 import { Gore } from './gore.js';
+import { Touch, isTouch } from './touch.js';
 
 const SAVE_KEY = 'tetherfall_save_v1';
 const DEFAULT_SETTINGS = { sens: 1, padSens: 1, fov: 80, vol: 0.7, scale: 1, invert: false, quality: 'high', gore: 'high' };
@@ -319,7 +320,7 @@ G.loadSection = (id, fromId = null, savedPos = null) => {
     G.ui.show('#loading', false);
     G.ui.show('#hud');
     G.state = 'play';
-    G.ui.notice(Input.device === 'pad' ? 'Controller ready' : 'Click to take control', 1600);
+    G.ui.notice(Input.device === 'pad' ? 'Controller ready' : Input.device === 'touch' ? 'Left side: move · Right side: look' : 'Click to take control', 2200);
     G.saveGame();
   }, 60);
 };
@@ -387,6 +388,15 @@ function closePause() { G.ui.show('#pause', false); G.resume(); }
 
 Input.init(canvas);
 Input.onDevice = () => G.ui.deviceChanged();
+G.touch = new Touch();
+if (isTouch() && !navigator.getGamepads?.()?.some((p) => p)) {
+  Input.setDevice('touch');
+  // lighter graphics from the very first frame on tablets and phones
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * 0.7);
+  renderer.setSize(innerWidth, innerHeight);
+  G.post.build('medium');
+  G.post.setSize(innerWidth, innerHeight);
+}
 Input.onLockChange = (locked) => {
   // only a lock loss we did not cause ourselves (the player pressed Esc) pauses the game
   if (!locked && G.state === 'play' && Input.device !== 'pad' && !Input.lastUnlockWasOurs) openPause('quests');
@@ -435,7 +445,9 @@ $('#bChapter').onclick = () => { G.ui.show('#chapter', false); G.resume(); };
 
 function startGame(save) {
   G.save = save;
-  save.settings = { ...DEFAULT_SETTINGS, ...(save.settings || {}) };
+  // tablets and phones start on lighter graphics; the auto-adjuster can lower it further
+  const base = isTouch() ? { ...DEFAULT_SETTINGS, quality: 'medium', scale: 0.7 } : DEFAULT_SETTINGS;
+  save.settings = { ...base, ...(save.settings || {}) };
   delete save.settings.shadows;
   save.best = save.best || {}; save.flags = save.flags || {}; save.found = save.found || [];
   Audio.init();
@@ -490,6 +502,27 @@ loadAssets(renderer, (p) => { $('#loadBar').style.width = Math.round(p * 100) + 
   })
   .catch((e) => { $('#loadMsg').textContent = 'Could not load game assets: ' + e.message; });
 
+// drop graphics quality automatically if the device can't keep up
+let fpsAcc = 0, fpsN = 0, fpsT = 0, slowFor = 0;
+function autoQuality(now) {
+  if (G.state !== 'play' || !G.save) { fpsT = now; return; }
+  fpsN++;
+  if (now - fpsT < 1000) return;
+  const fps = (fpsN * 1000) / (now - fpsT);
+  fpsT = now; fpsN = 0;
+  const s = G.save.settings;
+  slowFor = fps < 24 ? slowFor + 1 : 0;
+  if (slowFor >= 4) {
+    slowFor = 0;
+    if (s.quality === 'high') s.quality = 'medium';
+    else if (s.quality === 'medium') s.quality = 'low';
+    else if (s.scale > 0.55) s.scale = Math.round((s.scale - 0.15) * 100) / 100;
+    else return;
+    G.applySettings();
+    G.ui.toast(`Graphics lowered to keep it smooth (${s.quality}, ${Math.round(s.scale * 100)}% resolution). Change it in Settings.`);
+  }
+}
+
 // ------------------------------------------------------------------ loop
 let last = performance.now();
 function frame(now) {
@@ -497,6 +530,8 @@ function frame(now) {
   let dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   Input.poll(dt);
+  G.touch.update();
+  autoQuality(now);
   if (G.hitstopT > 0) { G.hitstopT -= dt; dt *= 0.12; }
   G.time += dt;
   U.time.value = G.time;

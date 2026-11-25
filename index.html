@@ -188,12 +188,38 @@ input[type=text] { width: 100%; font: 500 22px var(--f-ui); padding: 10px 12px; 
   #vitals { width: 220px; } #minimap { width: 120px; height: 120px; } #mmN { display: none; }
   #objective { width: 52vw; } #objective .qs { font-size: 14px; }
 }
+/* ---------------- touch controls ---------------- */
+canvas#game, #touch { touch-action: none; }
+html, body { overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#touch { position: fixed; inset: 0; z-index: 1; }
+.tstick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); background: rgba(0,0,0,.18); opacity: 0; pointer-events: none; }
+.tstick.show { opacity: 1; }
+.tknob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.55); }
+.tbtn { position: absolute; border-radius: 50%; border: 2px solid rgba(201,162,90,.8); background: rgba(18,20,22,.55); color: #f2e6cf; font: 700 13px var(--f-ui); letter-spacing: .06em; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.tbtn.on { background: rgba(201,162,90,.85); color: #121416; }
+.tb-slash { width: 104px; height: 104px; right: calc(26px + env(safe-area-inset-right)); bottom: calc(34px + env(safe-area-inset-bottom)); font-size: 16px; border-color: var(--ember); }
+.tb-hookR { width: 78px; height: 78px; right: calc(150px + env(safe-area-inset-right)); bottom: calc(110px + env(safe-area-inset-bottom)); }
+.tb-jump { width: 74px; height: 74px; right: calc(36px + env(safe-area-inset-right)); bottom: calc(160px + env(safe-area-inset-bottom)); }
+.tb-dash { width: 64px; height: 64px; right: calc(150px + env(safe-area-inset-right)); bottom: calc(24px + env(safe-area-inset-bottom)); }
+.tb-reload { width: 56px; height: 56px; right: calc(232px + env(safe-area-inset-right)); bottom: calc(30px + env(safe-area-inset-bottom)); font-size: 10px; }
+.tb-hookL { width: 78px; height: 78px; left: calc(30px + env(safe-area-inset-left)); bottom: calc(200px + env(safe-area-inset-bottom)); }
+.tb-menu { width: 60px; height: 60px; right: calc(14px + env(safe-area-inset-right)); top: calc(14px + env(safe-area-inset-top)); border-radius: 12px; font-size: 12px; }
+body.touch #vitals { bottom: auto; top: calc(112px + env(safe-area-inset-top)); width: 220px; }
+body.touch #speedo { bottom: auto; top: calc(10px + env(safe-area-inset-top)); }
+body.touch #speedo .n { font-size: 30px; }
+body.touch #minimap { bottom: auto; top: calc(84px + env(safe-area-inset-top)); width: 120px; height: 120px; }
+body.touch #mmN { display: none; }
+body.touch #objective { right: calc(86px + env(safe-area-inset-right)); width: min(300px, 34vw); }
+body.touch #toasts { top: calc(150px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); justify-items: center; }
+body.touch #prompt { pointer-events: auto; bottom: calc(150px + env(safe-area-inset-bottom)); padding: 12px 20px; }
+body.touch #grab { top: 40%; }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 
+<div id="touch" class="hidden"></div>
 <div id="hud" class="hidden">
   <canvas id="screenBlood" width="640" height="360"></canvas>
   <div id="speedlines"></div>

@@ -24,6 +24,8 @@ export const Input = {
   device: 'kbm',
   pad: null, padDown: new Set(), padPrev: new Set(), padHit: new Set(),
   axes: [0, 0, 0, 0], navRepeat: 0, navDir: null,
+  // touch controls feed these (see touch.js)
+  touchDown: new Set(), touchHit: new Set(), stick: { x: 0, y: 0 }, tdx: 0, tdy: 0,
 
   init(canvas) {
     this.canvas = canvas;
@@ -70,7 +72,7 @@ export const Input = {
     if (this.onDevice) this.onDevice(d);
   },
   lock() {
-    if (this.free || this.locked || this.device === 'pad') return;
+    if (this.free || this.locked || this.device === 'pad' || this.device === 'touch') return;
     try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { this.fails++; }
   },
   unlock() { if (document.pointerLockElement) { this.selfUnlock = true; document.exitPointerLock(); } },
@@ -101,18 +103,18 @@ export const Input = {
     }
     this.navDir = dir;
     for (const a of this.padDown) if (!this.padPrev.has(a)) this.padHit.add(a);
-    if (this.padDown.size || Math.abs(this.axes[0]) + Math.abs(this.axes[1]) + Math.abs(this.axes[2]) + Math.abs(this.axes[3]) > 0.3) this.setDevice('pad');
+    if (this.padDown.size > 0 || Math.abs(this.axes[0]) + Math.abs(this.axes[1]) + Math.abs(this.axes[2]) + Math.abs(this.axes[3]) > 0.3) this.setDevice('pad');
   },
 
   down(a) {
     if (KB[a] && KB[a].some((k) => this.keys.has(k))) return true;
     if (MOUSE[a] && MOUSE[a].some((m) => this.mb.has(m))) return true;
-    return this.padDown.has(a);
+    return this.padDown.has(a) || this.touchDown.has(a);
   },
   hit(a) {
     if (KB[a] && KB[a].some((k) => this.pressed.has(k))) return true;
     if (MOUSE[a] && MOUSE[a].some((m) => this.mPressed.has(m))) return true;
-    return this.padHit.has(a) || this.padHit.has('nav_' + a);
+    return this.padHit.has(a) || this.padHit.has('nav_' + a) || this.touchHit.has(a);
   },
   key(c) { return this.keys.has(c); },
   keyHit(c) { return this.pressed.has(c); },
@@ -121,7 +123,7 @@ export const Input = {
   move() {
     let x = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
     let y = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0);
-    x += this.axes[0]; y -= this.axes[1];
+    x += this.axes[0] + this.stick.x; y -= this.axes[1] + this.stick.y;
     const l = Math.hypot(x, y);
     if (l > 1) { x /= l; y /= l; }
     return { x, y };
@@ -130,8 +132,8 @@ export const Input = {
   look(dt, sensMouse, sensPad) {
     const curve = (v) => Math.sign(v) * Math.pow(Math.abs(v), 1.7);
     return {
-      dx: this.dx * 0.0022 * sensMouse + curve(this.axes[2]) * 3.4 * sensPad * dt,
-      dy: this.dy * 0.0022 * sensMouse + curve(this.axes[3]) * 2.6 * sensPad * dt,
+      dx: this.dx * 0.0022 * sensMouse + curve(this.axes[2]) * 3.4 * sensPad * dt + this.tdx * 0.0045 * sensPad,
+      dy: this.dy * 0.0022 * sensMouse + curve(this.axes[3]) * 2.6 * sensPad * dt + this.tdy * 0.0045 * sensPad,
     };
   },
   rumble(strong, weak, ms) {
@@ -141,11 +143,13 @@ export const Input = {
   },
   endFrame() {
     this.pressed.clear(); this.released.clear(); this.mPressed.clear();
-    this.dx = 0; this.dy = 0;
+    this.dx = 0; this.dy = 0; this.tdx = 0; this.tdy = 0;
+    this.touchHit.clear();
   },
   glyph(a) {
     const pad = { interact: 'X', reload: 'Y', jump: 'A', dash: 'B', slash: 'RB', hookL: 'LT', hookR: 'RT', both: 'LB', journal: 'Start', map: 'View', confirm: 'A', back: 'B' };
     const kb = { interact: 'F', reload: 'R', jump: 'Space', dash: 'Shift', slash: 'LMB', hookL: 'Q', hookR: 'E', both: 'RMB', journal: 'Tab', map: 'M', confirm: 'Enter', back: 'Esc' };
-    return (this.device === 'pad' ? pad : kb)[a] || a;
+    const touch = { interact: 'USE', reload: 'BLADES', jump: 'GAS', dash: 'DASH', slash: 'SLASH', hookL: 'L-HOOK', hookR: 'R-HOOK', both: 'BOTH', journal: 'MENU', map: 'MENU' };
+    return (this.device === 'pad' ? pad : this.device === 'touch' ? touch : kb)[a] || a;
   },
 };
